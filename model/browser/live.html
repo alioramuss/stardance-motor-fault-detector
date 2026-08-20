@@ -22,6 +22,14 @@
          padding:9px 18px;font-size:14px;font-weight:650;cursor:pointer;margin-left:auto}
   button:disabled{background:#2b323d;color:var(--faint);cursor:default}
   button.stop{background:#3a424f;color:var(--ink)}
+  button + button{margin-left:8px}
+  button.secondary{background:#2b323d;color:var(--ink)}
+  button.secondary:hover{background:#343d4a}
+
+  .banner{background:#20262f;border:1px solid var(--line);border-left:4px solid var(--accent);
+          border-radius:10px;padding:11px 16px;margin-bottom:16px;font-size:13.5px;color:var(--dim);display:none}
+  .banner.on{display:block}
+  .banner b{color:var(--ink)}
 
   .verdict{background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--idle);
            border-radius:14px;padding:26px 28px;margin-bottom:16px;transition:border-color .18s}
@@ -70,8 +78,15 @@
 <header>
   <h1>Motor Fault Detector</h1>
   <span class="proj" id="proj">loading model…</span>
+  <button id="demo" class="secondary" disabled>Run demo</button>
   <button id="connect" disabled>Connect Arduino</button>
 </header>
+
+<div class="banner" id="banner">
+  <b>Demo mode</b> — replaying real recordings made on an Arduino Uno through the actual
+  trained model. No hardware needed. It alternates between a balanced fan and one with a
+  weight taped to a blade, so you should see the verdict flip roughly every ten seconds.
+</div>
 
 <div class="verdict" id="verdict">
   <div class="vlabel">Status</div>
@@ -389,6 +404,66 @@
     sendVerdict(bad);
   }
 
+  // ---- demo mode: replay recorded data through the real model -------------
+  async function loadCsv(path) {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(path + ' → ' + res.status);
+    return (await res.text()).trim().split('\n').slice(1)
+      .map(l => l.split(',').map(Number))
+      .filter(a => a.length === 3 && a.every(Number.isFinite));
+  }
+
+  $('demo').disabled = false;
+  $('demo').onclick = async () => {
+    if (running) return;
+    running = true;
+    $('demo').disabled = true;
+    $('demo').textContent = 'Demo running';
+    $('connect').disabled = true;
+    $('vtext').textContent = 'LOADING';
+    $('vsub').textContent = 'Fetching recorded data…';
+
+    const files = [1, 2, 3, 4];
+    let healthy, faulty;
+    try {
+      [healthy, faulty] = await Promise.all([
+        Promise.all(files.map(i => loadCsv(`../../data/healthy.${i}.csv`))).then(a => a.flat()),
+        Promise.all(files.map(i => loadCsv(`../../data/faulty.${i}.csv`))).then(a => a.flat()),
+      ]);
+    } catch (e) {
+      $('vtext').textContent = 'DEMO UNAVAILABLE';
+      $('vsub').textContent = 'Could not load the recorded data: ' + e.message;
+      running = false; $('demo').disabled = false; $('demo').textContent = 'Run demo';
+      $('connect').disabled = false;
+      return;
+    }
+
+    $('banner').className = 'banner on';
+    $('vtext').textContent = 'FILLING BUFFER';
+    $('vsub').textContent = 'Replaying recorded data…';
+    $('sps').textContent = '200 (replay)';
+    $('led').textContent = 'n/a';
+
+    // alternate 10-second blocks so the verdict visibly flips
+    const BLOCK = 2000;                 // samples per block at 200 Hz
+    let src = healthy, idx = 0, blockLeft = BLOCK, useHealthy = true;
+
+    setInterval(() => {                 // 10 samples every 50 ms = 200/sec
+      for (let k = 0; k < 10; k++) {
+        const s = src[idx % src.length];
+        idx++;
+        push(s[0], s[1], s[2]);
+        if (--blockLeft <= 0) {
+          useHealthy = !useHealthy;
+          src = useHealthy ? healthy : faulty;
+          idx = 0; blockLeft = BLOCK;
+        }
+      }
+    }, 50);
+
+    setInterval(tick, 250);
+  };
+
   // ---- serial ------------------------------------------------------------
   $('connect').disabled = false;
   $('connect').onclick = async () => {
@@ -443,7 +518,7 @@
   };
 
   $('vtext').textContent = 'READY';
-  $('vsub').textContent = 'Model loaded. Close the Arduino Serial Monitor, then click Connect.';
+  $('vsub').textContent = 'No hardware? Click “Run demo”. With an Arduino, close the Serial Monitor and click Connect.';
   window.addEventListener('resize', () => { drawSpectrum(false); drawWave(); drawHist(); });
 })();
 </script>
