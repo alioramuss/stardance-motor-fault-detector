@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motor Fault Detector — Live</title>
+<style>
+  :root{
+    --bg:#0e1014; --panel:#161a21; --line:#252b35; --ink:#e9ecf2; --dim:#98a1b1; --faint:#6a7383;
+    --ok:#3ddc84; --bad:#ff6b5e; --idle:#6a7383; --accent:#5aa9ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       padding:28px 20px 60px}
+  .wrap{max-width:900px;margin:0 auto}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+         border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:22px}
+  h1{margin:0;font-size:19px;letter-spacing:-.01em}
+  .proj{color:var(--faint);font-size:13px}
+  button{background:var(--accent);color:#06121f;border:0;border-radius:8px;
+         padding:9px 18px;font-size:14px;font-weight:650;cursor:pointer;margin-left:auto}
+  button:disabled{background:#2b323d;color:var(--faint);cursor:default}
+  button.stop{background:#3a424f;color:var(--ink)}
+
+  .verdict{background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--idle);
+           border-radius:14px;padding:26px 28px;margin-bottom:16px;transition:border-color .18s}
+  .verdict.ok{border-left-color:var(--ok)}
+  .verdict.bad{border-left-color:var(--bad)}
+  .vlabel{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .vtext{font-size:40px;font-weight:700;letter-spacing:-.025em;line-height:1.05;color:var(--idle)}
+  .verdict.ok .vtext{color:var(--ok)}
+  .verdict.bad .vtext{color:var(--bad)}
+  .vsub{color:var(--dim);font-size:13.5px;margin-top:8px;min-height:20px}
+
+  .bars{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:18px 20px;margin-bottom:16px}
+  .bar{display:grid;grid-template-columns:92px 1fr 58px;align-items:center;gap:12px;margin:9px 0}
+  .bar .nm{font-size:13px;color:var(--dim)}
+  .track{height:9px;background:#20262f;border-radius:5px;overflow:hidden}
+  .fill{height:100%;width:0;border-radius:5px;transition:width .15s linear;background:var(--accent)}
+  .fill.ok{background:var(--ok)} .fill.bad{background:var(--bad)}
+  .pct{font-size:13px;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+  .ptitle{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+          margin-bottom:10px;display:flex;align-items:baseline;gap:10px}
+  .ptitle .tag{margin-left:auto;text-transform:none;letter-spacing:0;color:var(--dim);
+               font-size:12px;font-variant-numeric:tabular-nums}
+  canvas{display:block;width:100%;height:130px}
+  #spectrum{height:160px}
+  #hist{height:44px}
+
+  .sens{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px}
+  .sens input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+  .sens .lab{font-size:13px;color:var(--dim);white-space:nowrap}
+  .sens .val{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums;
+             min-width:118px;text-align:right}
+  .hint{color:var(--faint);font-size:12px;margin-top:10px}
+
+  .stats{display:flex;flex-wrap:wrap;gap:22px;color:var(--dim);font-size:13px}
+  .stats b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .note{color:var(--faint);font-size:12.5px;margin-top:18px;line-height:1.6}
+  code{background:#20262f;border-radius:4px;padding:1px 5px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Motor Fault Detector</h1>
+  <span class="proj" id="proj">loading model…</span>
+  <button id="connect" disabled>Connect Arduino</button>
+</header>
+
+<div class="verdict" id="verdict">
+  <div class="vlabel">Status</div>
+  <div class="vtext" id="vtext">NOT CONNECTED</div>
+  <div class="vsub" id="vsub">Click “Connect Arduino” and pick the COM port.</div>
+</div>
+
+<div class="bars" id="bars"></div>
+
+<div class="panel">
+  <div class="ptitle">Alarm sensitivity</div>
+  <div class="sens">
+    <span class="lab">less sensitive</span>
+    <input type="range" id="thresh" min="5" max="95" value="50" step="5">
+    <span class="val" id="threshval">trigger at 50%</span>
+  </div>
+  <div class="hint" id="senshint">
+    Fault is declared when the smoothed fault score crosses this line, and only clears once it
+    drops 15 points below it — so a marginal signal can’t flicker.
+  </div>
+</div>
+
+<div class="panel">
+  <div class="ptitle">Frequency spectrum <span class="tag" id="peaktag">—</span></div>
+  <canvas id="spectrum"></canvas>
+</div>
+
+<div class="panel">
+  <div class="ptitle">Live vibration — X axis, gravity removed</div>
+  <canvas id="wave"></canvas>
+</div>
+
+<div class="panel">
+  <div class="ptitle">Last 60 predictions</div>
+  <canvas id="hist"></canvas>
+</div>
+
+<div class="panel">
+  <div class="ptitle">Signal</div>
+  <div class="stats">
+    <span>Samples/sec <b id="sps">—</b></span>
+    <span>Window <b id="win">—</b></span>
+    <span>RMS <b id="rms">—</b></span>
+    <span>Peak <b id="peak">—</b></span>
+    <span>Inference <b id="lat">—</b></span>
+    <span>LED <b id="led">—</b></span>
+  </div>
+</div>
+
+<p class="note">
+  Reads <code>ax,ay,az</code> straight off the serial port at 115200 baud and runs the Edge Impulse
+  model in this browser tab — no server, no cloud call. The spectrum is a 256-point FFT of the X axis
+  with a Hann window, so the tall spike is the fan's rotation frequency and it grows when the rotor is
+  unbalanced. Verdict is a rolling average of the last 4 predictions, and is sent back down the serial
+  line as <code>F</code>/<code>H</code> to drive the Uno's onboard LED.
+</p>
+
+</div>
+
+<script src="edge-impulse-standalone.js"></script>
+<script src="run-impulse.js"></script>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const classifier = new EdgeImpulseClassifier();
+  await classifier.init();
+
+  const info  = classifier.getProjectInfo();
+  const props = classifier.getProperties();
+  const FS    = props.frequency;
+  $('proj').textContent = info.owner + ' / ' + info.name + '  ·  ' + FS + ' Hz';
+
+  const AXES = 3;
+  const FEATS = props.input_features_count;
+  const WIN   = Math.floor(FEATS / AXES);
+  $('win').textContent = WIN + ' samples (' + (WIN / FS).toFixed(1) + 's)';
+
+  // ---- FFT ---------------------------------------------------------------
+  const NFFT = 256;
+  function fft(re, im) {
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let cwr = 1, cwi = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const ur = re[i+k], ui = im[i+k];
+          const br = re[i+k+len/2], bi = im[i+k+len/2];
+          const vr = br * cwr - bi * cwi, vi = br * cwi + bi * cwr;
+          re[i+k] = ur + vr; im[i+k] = ui + vi;
+          re[i+k+len/2] = ur - vr; im[i+k+len/2] = ui - vi;
+          const nwr = cwr * wr - cwi * wi; cwi = cwr * wi + cwi * wr; cwr = nwr;
+        }
+      }
+    }
+  }
+
+  let spec = new Float32Array(NFFT / 2);
+  let specMax = 1, peakHz = 0, peakMag = 0;
+
+  function computeSpectrum(w) {
+    const re = new Float64Array(NFFT), im = new Float64Array(NFFT);
+    let mean = 0;
+    for (let i = 0; i < FEATS; i += AXES) mean += w[i];
+    mean /= WIN;
+    for (let s = 0; s < WIN; s++) {
+      const hann = 0.5 - 0.5 * Math.cos(2 * Math.PI * s / (WIN - 1));
+      re[s] = (w[s * AXES] - mean) * hann;
+    }
+    fft(re, im);
+    let mx = 1e-9, pIdx = 0;
+    for (let k = 0; k < NFFT / 2; k++) {
+      const m = Math.hypot(re[k], im[k]) / WIN;
+      spec[k] = m;
+      if (k > 2 && m > mx) { mx = m; pIdx = k; }   // skip near-DC bins
+    }
+    peakMag = mx;
+    peakHz  = pIdx * FS / NFFT;
+    specMax = specMax * 0.9 + mx * 0.1;           // smooth the y-scale
+  }
+
+  // ---- state -------------------------------------------------------------
+  const ring = new Float32Array(FEATS);
+  let filled = 0, head = 0;
+  let running = false, sampleCount = 0;
+  const history = [], smooth = [];
+  let writer = null, lastSent = null;
+
+  // alarm threshold with hysteresis
+  let THRESH = 0.50;
+  const HYST = 0.15;
+  let alarmed = false;
+  $('thresh').oninput = e => {
+    THRESH = e.target.value / 100;
+    $('threshval').textContent = 'trigger at ' + e.target.value + '%';
+    $('senshint').textContent = THRESH < 0.4
+      ? 'Biased toward catching faults early — expect the occasional false alarm on a healthy motor. This is usually the right bias for a fault alarm.'
+      : THRESH > 0.6
+      ? 'Biased toward certainty — fewer false alarms, but a marginal fault may go unreported.'
+      : 'Balanced: fault declared above the line, cleared only once it falls 15 points below it.';
+  };
+
+  function push(ax, ay, az) {
+    ring[head] = ax; ring[head+1] = ay; ring[head+2] = az;
+    head = (head + AXES) % FEATS;
+    if (filled < FEATS) filled += AXES;
+    sampleCount++;
+  }
+  function window_() {
+    const out = new Array(FEATS);
+    for (let i = 0; i < FEATS; i++) out[i] = ring[(head + i) % FEATS];
+    return out;
+  }
+
+  // ---- bars --------------------------------------------------------------
+  let barEls = null;
+  function buildBars(names) {
+    $('bars').innerHTML = ''; barEls = {};
+    names.forEach(n => {
+      const row = document.createElement('div'); row.className = 'bar';
+      row.innerHTML = '<div class="nm">' + n + '</div>' +
+                      '<div class="track"><div class="fill"></div></div>' +
+                      '<div class="pct">0%</div>';
+      $('bars').appendChild(row);
+      barEls[n] = { fill: row.querySelector('.fill'), pct: row.querySelector('.pct') };
+    });
+  }
+
+  // ---- drawing -----------------------------------------------------------
+  function fitCanvas(c) {
+    const r = window.devicePixelRatio || 1;
+    c.width = c.clientWidth * r; c.height = c.clientHeight * r;
+    const g = c.getContext('2d'); g.setTransform(r, 0, 0, r, 0, 0); return g;
+  }
+
+  function drawSpectrum(bad) {
+    const c = $('spectrum'), g = fitCanvas(c);
+    const W = c.clientWidth, H = c.clientHeight, PAD = 18;
+    g.clearRect(0, 0, W, H);
+    const plotH = H - PAD;
+
+    // frequency gridlines every 20 Hz
+    g.strokeStyle = '#20262f'; g.fillStyle = '#5a6473';
+    g.font = '10px ui-monospace, Consolas, monospace'; g.lineWidth = 1;
+    for (let f = 0; f <= FS / 2; f += 20) {
+      const x = (f / (FS / 2)) * W;
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, plotH); g.stroke();
+      g.fillText(f + (f === 0 ? ' Hz' : ''), x + 3, H - 5);
+    }
+    if (filled < FEATS) return;
+
+    const scale = plotH / (specMax * 1.25);
+    const col = bad ? '#ff6b5e' : '#3ddc84';
+    g.beginPath(); g.moveTo(0, plotH);
+    for (let k = 0; k < NFFT / 2; k++) {
+      const x = (k / (NFFT / 2 - 1)) * W;
+      g.lineTo(x, Math.max(1, plotH - spec[k] * scale));
+    }
+    g.lineTo(W, plotH); g.closePath();
+    g.fillStyle = col + '33'; g.fill();
+    g.strokeStyle = col; g.lineWidth = 1.5; g.stroke();
+
+    // mark the peak
+    const px = (peakHz / (FS / 2)) * W;
+    g.strokeStyle = col; g.globalAlpha = .5; g.setLineDash([3, 3]);
+    g.beginPath(); g.moveTo(px, 0); g.lineTo(px, plotH); g.stroke();
+    g.setLineDash([]); g.globalAlpha = 1;
+
+    $('peaktag').textContent = 'peak ' + peakHz.toFixed(1) + ' Hz  ·  ' +
+                               (peakHz * 60).toFixed(0) + ' rpm';
+  }
+
+  function drawWave() {
+    const c = $('wave'), g = fitCanvas(c);
+    const W = c.clientWidth, H = c.clientHeight;
+    g.clearRect(0, 0, W, H);
+    g.strokeStyle = '#252b35'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, H/2); g.lineTo(W, H/2); g.stroke();
+    if (filled < FEATS) return;
+
+    const w = window_();
+    let mean = 0; for (let i = 0; i < FEATS; i += AXES) mean += w[i];
+    mean /= WIN;
+    let pk = 1;
+    for (let i = 0; i < FEATS; i += AXES) pk = Math.max(pk, Math.abs(w[i] - mean));
+
+    g.strokeStyle = '#5aa9ff'; g.lineWidth = 1.4; g.beginPath();
+    for (let s = 0; s < WIN; s++) {
+      const v = (w[s*AXES] - mean) / pk;
+      const x = (s / (WIN - 1)) * W, y = H/2 - v * (H/2 - 6);
+      s ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+
+    let sum = 0; for (let i = 0; i < FEATS; i += AXES) { const d = w[i] - mean; sum += d*d; }
+    $('rms').textContent = Math.round(Math.sqrt(sum / WIN));
+  }
+
+  function drawHist() {
+    const c = $('hist'), g = fitCanvas(c);
+    const W = c.clientWidth, H = c.clientHeight;
+    g.clearRect(0, 0, W, H);
+    const N = 60, bw = W / N;
+    for (let i = 0; i < history.length; i++) {
+      const v = history[history.length - 1 - i];
+      const x = W - (i + 1) * bw;
+      g.fillStyle = v > 0.5 ? '#ff6b5e' : '#3ddc84';
+      g.globalAlpha = 0.35 + 0.65 * Math.abs(v - 0.5) * 2;
+      g.fillRect(x + 1, 4, bw - 2, H - 8);
+    }
+    g.globalAlpha = 1;
+  }
+
+  // ---- send verdict to the Arduino ---------------------------------------
+  async function sendVerdict(bad) {
+    const ch = bad ? 'F' : 'H';
+    if (!writer || ch === lastSent) return;
+    lastSent = ch;
+    try {
+      await writer.write(new TextEncoder().encode(ch));
+      $('led').textContent = bad ? 'ON' : 'off';
+    } catch (e) { $('led').textContent = 'error'; }
+  }
+
+  // ---- inference loop ----------------------------------------------------
+  function tick() {
+    if (filled < FEATS) return;
+
+    const t0 = performance.now();
+    let res;
+    try { res = classifier.classify(window_()); }
+    catch (e) { $('vsub').textContent = 'Classify error: ' + e.message; return; }
+    $('lat').textContent = (performance.now() - t0).toFixed(1) + ' ms';
+
+    const names = res.results.map(r => r.label);
+    if (!barEls || Object.keys(barEls).length !== names.length) buildBars(names);
+
+    let top = res.results[0];
+    res.results.forEach(r => { if (r.value > top.value) top = r; });
+
+    const isFault = l => /fault|bad|broken/i.test(l);
+    const faultScore = (res.results.find(r => isFault(r.label)) || {value:0}).value;
+    smooth.push(faultScore); if (smooth.length > 4) smooth.shift();
+    const avg = smooth.reduce((a,b) => a+b, 0) / smooth.length;
+
+    if (!alarmed && avg >= THRESH)              alarmed = true;
+    else if (alarmed && avg < THRESH - HYST)    alarmed = false;
+    const bad = alarmed;
+
+    res.results.forEach(r => {
+      const b = barEls[r.label]; if (!b) return;
+      b.fill.style.width = (r.value * 100).toFixed(0) + '%';
+      b.fill.className = 'fill ' + (isFault(r.label) ? 'bad' : 'ok');
+      b.pct.textContent = (r.value * 100).toFixed(0) + '%';
+    });
+
+    const v = $('verdict');
+    v.className = 'verdict ' + (bad ? 'bad' : 'ok');
+    $('vtext').textContent = bad ? 'FAULT DETECTED' : 'HEALTHY';
+    $('vsub').textContent = 'fault score ' + (avg * 100).toFixed(0) + '%  ·  threshold ' +
+                            (THRESH * 100).toFixed(0) + '%  ·  raw top: ' + top.label + ' ' +
+                            (top.value * 100).toFixed(0) + '%';
+
+    history.push(avg); if (history.length > 60) history.shift();
+
+    computeSpectrum(window_());
+    $('peak').textContent = peakHz.toFixed(1) + ' Hz';
+    drawSpectrum(bad); drawWave(); drawHist();
+    sendVerdict(bad);
+  }
+
+  // ---- serial ------------------------------------------------------------
+  $('connect').disabled = false;
+  $('connect').onclick = async () => {
+    if (running) { location.reload(); return; }
+    if (!('serial' in navigator)) {
+      $('vsub').textContent = 'This browser has no Web Serial API. Use Chrome or Edge on desktop.';
+      return;
+    }
+    let port;
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+    } catch (e) {
+      $('vsub').textContent = 'Could not open the port: ' + e.message +
+        ' — close the Arduino Serial Monitor and any PowerShell logger first.';
+      return;
+    }
+
+    running = true;
+    $('connect').textContent = 'Disconnect';
+    $('connect').className = 'stop';
+    $('vtext').textContent = 'FILLING BUFFER';
+    $('vsub').textContent = 'Collecting the first window…';
+
+    try { writer = port.writable.getWriter(); $('led').textContent = 'ready'; }
+    catch (e) { $('led').textContent = 'unavailable'; }
+
+    setInterval(tick, 250);
+    setInterval(() => { $('sps').textContent = sampleCount; sampleCount = 0; }, 1000);
+
+    const dec = new TextDecoderStream();
+    port.readable.pipeTo(dec.writable).catch(() => {});
+    const reader = dec.readable.getReader();
+    let buf = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const p = line.split(',');
+        const f = p.length === 4 ? p.slice(1) : p;
+        if (f.length !== 3) continue;
+        const ax = +f[0], ay = +f[1], az = +f[2];
+        if (Number.isFinite(ax) && Number.isFinite(ay) && Number.isFinite(az)) push(ax, ay, az);
+      }
+      if (buf.length > 4096) buf = '';
+    }
+  };
+
+  $('vtext').textContent = 'READY';
+  $('vsub').textContent = 'Model loaded. Close the Arduino Serial Monitor, then click Connect.';
+  window.addEventListener('resize', () => { drawSpectrum(false); drawWave(); drawHist(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="700" viewBox="0 0 800 700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="800" height="700" fill="#ffffff"/>
+
+  <text x="32" y="34" font-size="19" font-weight="700" fill="#14171d">Wiring — MPU-6050 + HC-SR04 + servo</text>
+  <text x="32" y="56" font-size="12.5" fill="#6a7383">Power and ground share the breadboard rails. A dot means connected; lines that merely cross are not.</text>
+
+  <!-- ================= breadboard rails ================= -->
+  <line x1="630" y1="110" x2="630" y2="600" stroke="#e03131" stroke-width="5" stroke-linecap="round"/>
+  <line x1="668" y1="110" x2="668" y2="622" stroke="#1971c2" stroke-width="5" stroke-linecap="round"/>
+  <text x="630" y="100" font-size="12" font-weight="700" fill="#e03131" text-anchor="middle">+ 5V</text>
+  <text x="676" y="100" font-size="12" font-weight="700" fill="#1971c2" text-anchor="middle">− GND</text>
+  <text x="712" y="360" font-size="11.5" fill="#8a929f" transform="rotate(90 712 360)" text-anchor="middle">breadboard power rails</text>
+
+  <!-- ================= Arduino ================= -->
+  <rect x="60" y="118" width="140" height="320" rx="10" fill="#0f6f75" stroke="#094a4e" stroke-width="2"/>
+  <text x="130" y="150" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">Arduino</text>
+  <text x="130" y="169" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">UNO</text>
+
+  <g font-size="12" fill="#ffffff" text-anchor="end">
+    <text x="192" y="224">A4</text>
+    <text x="192" y="254">A5</text>
+    <text x="192" y="294">D2</text>
+    <text x="192" y="334">D7</text>
+    <text x="192" y="374">D9</text>
+    <text x="192" y="414">5V</text>
+    <text x="192" y="444">GND</text>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="200" cy="220" r="3.5"/>
+    <circle cx="200" cy="250" r="3.5"/>
+    <circle cx="200" cy="290" r="3.5"/>
+    <circle cx="200" cy="330" r="3.5"/>
+    <circle cx="200" cy="370" r="3.5"/>
+    <circle cx="200" cy="410" r="3.5"/>
+    <circle cx="200" cy="440" r="3.5"/>
+  </g>
+
+  <!-- ================= components ================= -->
+  <!-- MPU-6050 -->
+  <rect x="300" y="120" width="260" height="90" rx="8" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.5"/>
+  <text x="430" y="158" font-size="14" font-weight="700" fill="#14171d" text-anchor="middle">MPU-6050</text>
+  <text x="430" y="178" font-size="11.5" fill="#8a929f" text-anchor="middle">accelerometer — stays on the fan</text>
+
+  <!-- HC-SR04 -->
+  <rect x="300" y="262" width="260" height="118" rx="8" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.5"/>
+  <text x="430" y="312" font-size="14" font-weight="700" fill="#14171d" text-anchor="middle">HC-SR04</text>
+  <text x="430" y="332" font-size="11.5" fill="#8a929f" text-anchor="middle">rangefinder — mounted on the servo horn</text>
+
+  <!-- Servo -->
+  <rect x="300" y="430" width="260" height="92" rx="8" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.5"/>
+  <text x="430" y="470" font-size="14" font-weight="700" fill="#14171d" text-anchor="middle">Servo</text>
+  <text x="430" y="490" font-size="11.5" fill="#8a929f" text-anchor="middle">carries the rangefinder</text>
+
+  <!-- ================= signal wires (left side) ================= -->
+  <!-- SDA -> A4 -->
+  <path d="M300,220 L200,220" fill="none" stroke="#f59f00" stroke-width="2.6"/>
+  <text x="252" y="214" font-size="11" fill="#b07800" text-anchor="middle">SDA</text>
+  <!-- SCL -> A5 -->
+  <path d="M300,250 L200,250" fill="none" stroke="#ae3ec9" stroke-width="2.6"/>
+  <text x="252" y="244" font-size="11" fill="#8c2ba3" text-anchor="middle">SCL</text>
+  <!-- Echo -> D2 -->
+  <path d="M300,352 L265,352 L265,290 L200,290" fill="none" stroke="#1971c2" stroke-width="2.6"/>
+  <text x="232" y="284" font-size="11" fill="#1465ad" text-anchor="middle">Echo</text>
+  <!-- Trig -> D7 -->
+  <path d="M300,300 L285,300 L285,330 L200,330" fill="none" stroke="#2f9e44" stroke-width="2.6"/>
+  <text x="240" y="324" font-size="11" fill="#268239" text-anchor="middle">Trig</text>
+  <!-- Servo signal -> D9 -->
+  <path d="M300,452 L245,452 L245,370 L200,370" fill="none" stroke="#f76707" stroke-width="2.6"/>
+  <text x="222" y="364" font-size="11" fill="#d35400" text-anchor="middle">signal</text>
+
+  <!-- component-side stubs, signals -->
+  <g fill="#495057">
+    <circle cx="300" cy="220" r="3.5"/>
+    <circle cx="300" cy="250" r="3.5"/>
+    <circle cx="300" cy="352" r="3.5"/>
+    <circle cx="300" cy="300" r="3.5"/>
+    <circle cx="300" cy="452" r="3.5"/>
+  </g>
+  <g font-size="11" fill="#495057" text-anchor="start">
+    <text x="308" y="224">SDA</text>
+    <text x="308" y="254">SCL</text>
+    <text x="308" y="304">Trig</text>
+    <text x="308" y="356">Echo</text>
+    <text x="308" y="456">signal (orange)</text>
+  </g>
+
+  <!-- ================= power wires (right side) ================= -->
+  <!-- MPU VCC -->
+  <path d="M560,148 L630,148" fill="none" stroke="#e03131" stroke-width="2.6"/>
+  <!-- MPU GND (crosses the red rail, no dot) -->
+  <path d="M560,190 L668,190" fill="none" stroke="#212529" stroke-width="2.6"/>
+  <!-- HC VCC -->
+  <path d="M560,282 L630,282" fill="none" stroke="#e03131" stroke-width="2.6"/>
+  <!-- HC GND -->
+  <path d="M560,368 L668,368" fill="none" stroke="#212529" stroke-width="2.6"/>
+  <!-- Servo V+ -->
+  <path d="M560,440 L630,440" fill="none" stroke="#e03131" stroke-width="2.6"/>
+  <!-- Servo GND -->
+  <path d="M560,508 L668,508" fill="none" stroke="#212529" stroke-width="2.6"/>
+
+  <g font-size="11" fill="#495057" text-anchor="end">
+    <text x="552" y="144">VCC</text>
+    <text x="552" y="186">GND</text>
+    <text x="552" y="278">VCC</text>
+    <text x="552" y="364">GND</text>
+    <text x="552" y="436">V+ (red)</text>
+    <text x="552" y="504">GND (brown)</text>
+  </g>
+
+  <!-- ================= Uno power to rails ================= -->
+  <path d="M200,410 L232,410 L232,600 L630,600" fill="none" stroke="#e03131" stroke-width="2.6"/>
+  <path d="M200,440 L214,440 L214,622 L668,622" fill="none" stroke="#212529" stroke-width="2.6"/>
+  <text x="420" y="592" font-size="11" fill="#c92a2a">Uno 5V → red rail</text>
+  <text x="420" y="638" font-size="11" fill="#212529">Uno GND → blue rail</text>
+
+  <!-- ================= connection dots ================= -->
+  <g fill="#e03131">
+    <circle cx="630" cy="148" r="4.5"/>
+    <circle cx="630" cy="282" r="4.5"/>
+    <circle cx="630" cy="440" r="4.5"/>
+    <circle cx="630" cy="600" r="4.5"/>
+  </g>
+  <g fill="#1971c2">
+    <circle cx="668" cy="190" r="4.5"/>
+    <circle cx="668" cy="368" r="4.5"/>
+    <circle cx="668" cy="508" r="4.5"/>
+    <circle cx="668" cy="622" r="4.5"/>
+  </g>
+
+  <!-- ================= note ================= -->
+  <rect x="32" y="486" width="240" height="176" rx="8" fill="#fff9db" stroke="#f0d264" stroke-width="1.5"/>
+  <text x="48" y="510" font-size="12.5" font-weight="700" fill="#664d03">Watch out</text>
+  <text x="48" y="532" font-size="11.5" fill="#665417">Echo must be <tspan font-weight="700">D2</tspan> (or D3).</text>
+  <text x="48" y="549" font-size="11.5" fill="#665417">Only those pins can raise</text>
+  <text x="48" y="566" font-size="11.5" fill="#665417">the interrupt the sketch uses.</text>
+  <text x="48" y="592" font-size="11.5" fill="#665417">A servo on the Uno's 5V dips</text>
+  <text x="48" y="609" font-size="11.5" fill="#665417">the rail and the accelerometer</text>
+  <text x="48" y="626" font-size="11.5" fill="#665417">reads the dip as vibration. Use</text>
+  <text x="48" y="643" font-size="11.5" fill="#665417">its own supply if you have one.</text>
+</svg>
