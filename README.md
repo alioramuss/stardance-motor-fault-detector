@@ -64,7 +64,7 @@ a shortcut.
 
 ### Sampling
 
-`sketch/motor_sensor.ino` samples all three axes at a fixed **200 Hz** and
+`firmware/motor_sensor.ino` samples all three axes at a fixed **200 Hz** and
 prints `timestamp,ax,ay,az` at 115200 baud. The loop is timed with `micros()`
 rather than `delay()` so the interval stays constant; the FFT downstream is
 meaningless if the sample rate wanders.
@@ -74,7 +74,7 @@ rotation frequency.
 
 ### Data collection
 
-`capture.ps1` reads the serial port and writes CSV. No extra software is
+`tools/capture.ps1` reads the serial port and writes CSV. No extra software is
 required — it uses `System.IO.Ports`, which ships with Windows.
 
 Two 60-second recordings, 12,000 samples each: fan normal, and fan with the
@@ -187,8 +187,11 @@ demonstrates transfer to bearing wear, or to a different motor.
 
 ```powershell
 # fan running in the condition you want to record
-.\capture.ps1 -Label healthy -Seconds 60
+.\tools\capture.ps1 -Label healthy -Seconds 60
 ```
+
+Writes `data/healthy.1.csv` … `data/healthy.12.csv`. Run it again with
+`-Label faulty` after taping a small weight to one blade.
 
 ### Live detection
 
@@ -241,12 +244,19 @@ chunks gives both automatic labelling and enough samples to split train/test.
 ## Repository
 
 ```
-sketch/          Arduino sketches
-capture.ps1      serial to CSV logger
-data/            recorded datasets
-model/browser/   exported WebAssembly model, dashboard, local server
-devlogs/         build log
+firmware/                 Arduino sketch — samples at 200 Hz, drives the LED alarm
+tools/capture.ps1         serial to CSV logger
+data/                     recorded datasets, 5-second chunks
+model/browser/            exported WebAssembly model, live dashboard, local server
+docs/wiring.svg           wiring diagram
+devlogs/                  build log
+experiments/ultrasonic/   parked HC-SR04 non-contact sensing experiment
 ```
+
+The `experiments/` folder is work that didn't make it into the main result —
+kept because the reasoning is useful, and the write-up in
+`experiments/ultrasonic/rig-design.md` explains why the approach hits a hard
+physical limit.
 
 ---
 
