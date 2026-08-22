@@ -44,6 +44,14 @@ Wiring — the Uno's I²C lives on A4/A5 and cannot be moved:
 imbalance — the most common mechanical fault in rotating machinery, and one
 that produces a clear vibration signature at the rotation frequency.
 
+**Sensor mounting.** The MPU-6050 is fixed to the fan body with double-sided
+tape rather than a printed bracket. This is a known weakness: the sensor's
+position shifted between the first two recordings, which is why the healthy and
+faulty datasets are not perfectly comparable. A printed holder is planned, and
+would be the single biggest improvement to data quality.
+
+A full CAD assembly of the build is in [`CAD/`](CAD/), as STEP and STL.
+
 ---
 
 ## How it works
@@ -244,6 +252,8 @@ chunks gives both automatic labelling and enough samples to split train/test.
 ## Repository
 
 ```
+CAD/                      full assembly, STEP and STL
+PCB/                      wiring diagram (no custom board — breadboard build)
 firmware/                 Arduino sketch — samples at 200 Hz, drives the LED alarm
 tools/capture.ps1         serial to CSV logger
 data/                     recorded datasets, 5-second chunks
@@ -251,6 +261,8 @@ model/browser/            exported WebAssembly model, live dashboard, local serv
 docs/wiring.svg           wiring diagram
 devlogs/                  build log
 experiments/ultrasonic/   parked HC-SR04 non-contact sensing experiment
+BOM.csv                   parts in the build
+BOM-funding.csv           parts requested for the next phase
 ```
 
 The `experiments/` folder is work that didn't make it into the main result —
